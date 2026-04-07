@@ -1,38 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat App</title>
+    <title>Messenger</title>
     <link href="style.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"
-            integrity="sha512-Xm9qbB6Pu06k3PUwPj785dyTl6oHxgsv9nHp7ej7nCpAqGZT3OZpsELuCYX05DdonFpTlBpXMOxjavIAIUwr0w=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js" defer></script>
     <script defer src="app.js"></script>
 </head>
-
 <body>
-<main>
-    <form class="form-join">
-        <input type="text" id="name" maxlength="8" placeholder="Your name" size="5" required>
-        <input type="text" id="room" placeholder="Chat room" size="5" required>
-        <button id="join" type="submit">Join</button>
-    </form>
+<main class="app-container">
+    <aside class="side-bar">
+        <div class="sidebar-header">
+            <h2>Messenger</h2>
+        </div>
 
-    <ul class="chat-display"></ul>
+        <div class="section">
+            <h3>Rooms</h3>
+            <ul class="room-list"></ul>
+        </div>
 
-    <p class="user-list"></p>
+        <div class="section">
+            <h3>Users</h3>
+            <ul class="user-list"></ul>
+        </div>
 
-    <p class="room-list"></p>
+        <form class="form-join">
+            <input type="text" id="name" maxlength="8" placeholder="Your name" required>
+            <input type="text" id="room" placeholder="Room name" required>
+            <button id="join" type="submit">Join Room</button>
+        </form>
+    </aside>
 
-    <p class="activity"></p>
+    <section class="chat-window">
+        <header class="chat-header">
+            <h2 id="current-room-display">Select a Room</h2>
+            <p class="activity"></p>
+        </header>
 
-    <form class="form-msg">
-        <input type="text" id="message" placeholder="Your message" required>
-        <button type="submit">Send</button>
-    </form>
+        <ul class="chat-display">
+        </ul>
+
+        <footer class="input-area">
+            <form class="form-msg">
+                <input type="text" id="message" placeholder="Type a message..." autocomplete="off" required>
+                <button type="submit" class="send-button">Send</button>
+            </form>
+        </footer>
+    </section>
 </main>
 </body>
-
 </html>

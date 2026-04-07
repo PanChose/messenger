@@ -1,4 +1,4 @@
-const socket = io('https://messenger-78t4.onrender.com')
+const socket = io('ws://localhost:3500') // change to your website domain https://messenger-78t4.onrender.com
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')
@@ -27,6 +27,7 @@ function enterRoom(e) {
             name: nameInput.value,
             room: chatRoom.value
         })
+        document.querySelector('#current-room-display').textContent = chatRoom.value
     }
 }
 
@@ -46,8 +47,8 @@ socket.on("message", (data) => {
     const { name, text, time } = data
     const li = document.createElement('li')
     li.className = 'post'
-    if (name === nameInput.value) li.className = 'post post--left'
-    if (name !== nameInput.value && name !== 'Admin') li.className = 'post post--right'
+    if (name === nameInput.value) li.className = 'post post--right'
+    if (name !== nameInput.value && name !== 'Admin') li.className = 'post post--left'
     if (name !== 'Admin') {
         li.innerHTML = `<div class="post__header ${name === nameInput.value
             ? 'post__header--user'
