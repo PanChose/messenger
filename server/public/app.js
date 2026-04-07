@@ -1,4 +1,4 @@
-const socket = io('ws://localhost:3500')
+const socket = io('https://messenger-78t4.onrender.com')
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')

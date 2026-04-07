@@ -27,7 +27,7 @@ const UsersState = {
 
 const io = new Server(expressServer, {
     cors: {
-        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:3500", "http://localhost:63342"]
+        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:3500", "http://localhost:63342", ["https://messenger-78t4.onrender.com"]]
     }
 })
 
