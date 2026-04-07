@@ -1,4 +1,4 @@
-const socket = io('ws://localhost:3500') // change to your website domain https://messenger-78t4.onrender.com
+const socket = io('https://messenger-78t4.onrender.com') // change to your website domain
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')
