@@ -27,7 +27,7 @@ const UsersState = {
 
 const io = new Server(expressServer, {
     cors: {
-        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:5500", "http://localhost:63342"]
+        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:3500", "http://localhost:63342"]
     }
 })
 
@@ -35,7 +35,7 @@ io.on('connection', socket => {
     console.log(`User ${socket.id} connected`)
 
     // Upon connection - only to user
-    socket.emit('message', buildMsg(ADMIN, "Welcome to HuilaChat"))
+    socket.emit('message', buildMsg(ADMIN, "Welcome to Chat App!"))
 
     socket.on('enterRoom', ({ name, room }) => {
 
@@ -44,12 +44,12 @@ io.on('connection', socket => {
 
         if (prevRoom) {
             socket.leave(prevRoom)
-            io.to(prevRoom).emit('message', buildMsg(ADMIN, `${name} has the room`))
+            io.to(prevRoom).emit('message', buildMsg(ADMIN, `${name} has left the room`))
         }
 
         const user = activateUser(socket.id, name, room)
 
-        // cannot update previous users list until after the state update in active user
+        // Cannot update previous room users list until after the state update in activate user
         if (prevRoom) {
             io.to(prevRoom).emit('userList', {
                 users: getUsersInRoom(prevRoom)
@@ -59,19 +59,19 @@ io.on('connection', socket => {
         // join room
         socket.join(user.room)
 
-        // to the user who joined
-        socket.emit('message', buildMsg(ADMIN, `you have joined the ${user.room} chat room`))
+        // To user who joined
+        socket.emit('message', buildMsg(ADMIN, `You have joined the ${user.room} chat room`))
 
-        // to everyone else
+        // To everyone else
         socket.broadcast.to(user.room).emit('message', buildMsg(ADMIN, `${user.name} has joined the room`))
 
-        // update user list for room
+        // Update user list for room
         io.to(user.room).emit('userList', {
             users: getUsersInRoom(user.room)
         })
 
-        // update rooms list for all
-        io.emit('roomsList', {
+        // Update rooms list for everyone
+        io.emit('roomList', {
             rooms: getAllActiveRooms()
         })
     })
@@ -97,7 +97,7 @@ io.on('connection', socket => {
     })
 
     // Listening for a message event
-    socket.on('message', ({ name, text}) => {
+    socket.on('message', ({ name, text }) => {
         const room = getUser(socket.id)?.room
         if (room) {
             io.to(room).emit('message', buildMsg(name, text))
