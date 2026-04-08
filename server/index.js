@@ -70,6 +70,7 @@ io.on('connection', socket => {
             users: getUsersInRoom(user.room)
         })
 
+
         // Update rooms list for everyone
         io.emit('roomList', {
             rooms: getAllActiveRooms()
