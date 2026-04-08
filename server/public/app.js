@@ -1,4 +1,4 @@
-const socket = io('https://messenger-78t4.onrender.com') // change to your website domain
+const socket = io('ws://localhost:3500') // change to your website domain
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')
@@ -110,3 +110,57 @@ function showRooms(rooms) {
         })
     }
 }
+
+/**
+ * AuthService - A simple SDK for handling authentication
+ * To be used by frontend developers to connect forms to the backend.
+ */
+const AuthService = {
+    // Make sure this matches your server port
+    API_URL: 'http://localhost:3500/auth',
+
+    /**
+     * Registers a new user
+     * @param {string} username
+     * @param {string} password
+     * @returns {Promise<Object>} Result of the operation
+     */
+    async register(username, password) {
+        try {
+            const response = await fetch(`${this.API_URL}/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Registration failed');
+            }
+
+            console.log('Registration successful:', result);
+            return { success: true, message: result.message };
+
+        } catch (error) {
+            console.error('AuthService Error:', error.message);
+            return { success: false, error: error.message };
+        }
+    }
+};
+
+// --- Example of how to connect this to a UI form later ---
+/*
+const handleSignUp = async (event) => {
+    event.preventDefault();
+    const { success, error } = await AuthService.register('JohnDoe', 'Secret123');
+
+    if (success) {
+        alert('Welcome! You can now log in.');
+    } else {
+        alert('Error: ' + error);
+    }
+};
+*/

@@ -1,21 +1,97 @@
+import 'dotenv/config'
 import express from 'express'
+import mongoose from "mongoose";
+import cors from 'cors'
 import { Server } from "socket.io"
 import path from 'path'
 import { fileURLToPath } from 'url'
+import bcrypt from 'bcryptjs'
+import User from './models/User.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const PORT = process.env.PORT || 3500
 const ADMIN = "Admin"
 
 const app = express()
 
-app.use(express.static(path.join(__dirname, "public")))
+app.use(express.static(path.join(__dirname, "../public")))
+app.use(express.json())
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || origin.startsWith("http://localhost:63342")) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
 
-const expressServer = app.listen(PORT, () => {
-    console.log(`listening on port ${PORT}`)
+// connect to server
+const expressServer = app.listen(process.env.PORT || 3500, () => {
+    console.log(`Server running on port: ${process.env.PORT || 3500}`)
 })
+
+const io = new Server(expressServer, {
+    cors: { origin: "*" }
+})
+
+// connect to db
+mongoose.connect(process.env.MONGO_URI).then(r => {
+    console.log("DB connected")
+})
+
+// --- Registration API Endpoint ---
+app.post('/auth/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        // 1. Basic validation
+        if (!username || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Username and password are required."
+            });
+        }
+
+        // 2. Check if user already exists
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: "This username is already taken."
+            });
+        }
+
+        // 3. Hash the password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 4. Create and save user
+        const newUser = new User({
+            username,
+            password: hashedPassword
+        });
+
+        await newUser.save();
+
+        // 5. Success response
+        return res.status(201).json({
+            success: true,
+            message: "User registered successfully!",
+            userId: newUser._id
+        });
+
+    } catch (error) {
+        console.error("Registration Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error."
+        });
+    }
+});
+
 
 // state
 const UsersState = {
@@ -24,12 +100,6 @@ const UsersState = {
         this.users = newUsersArray
     }
 }
-
-const io = new Server(expressServer, {
-    cors: {
-        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:3500", "http://localhost:63342", ["https://messenger-78t4.onrender.com"]]
-    }
-})
 
 io.on('connection', socket => {
     console.log(`User ${socket.id} connected`)
