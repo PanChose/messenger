@@ -15,7 +15,7 @@ const ADMIN = "Admin"
 
 const app = express()
 
-app.use(express.static(path.join(__dirname, "../public")))
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json())
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
