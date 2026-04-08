@@ -125,6 +125,7 @@ io.on('connection', socket => {
                 users: getUsersInRoom(prevRoom)
             })
         }
+        // first comment now 
 
         // join room
         socket.join(user.room)
@@ -139,6 +140,7 @@ io.on('connection', socket => {
         io.to(user.room).emit('userList', {
             users: getUsersInRoom(user.room)
         })
+
 
         // Update rooms list for everyone
         io.emit('roomList', {
