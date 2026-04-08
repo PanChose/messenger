@@ -55,7 +55,7 @@ io.on('connection', socket => {
                 users: getUsersInRoom(prevRoom)
             })
         }
-        // first comment
+        // first comment now 
 
         // join room
         socket.join(user.room)
