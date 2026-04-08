@@ -1,7 +1,7 @@
 const socket = io('https://messenger-78t4.onrender.com') // change to your website domain
 
-const msgInput = document.querySelector('#message')
-const nameInput = document.querySelector('#name')
+const msgInput = document.querySelector('#message') // test commit
+const nameInput = document.querySelector('#name') //@PanChose
 const chatRoom = document.querySelector('#room')
 const activity = document.querySelector('.activity')
 const usersList = document.querySelector('.user-list')
