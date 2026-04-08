@@ -1,4 +1,4 @@
-const socket = io('ws://localhost:3500') // change to your website domain
+const socket = io('https://messenger-hxxk.onrender.com') // change to your website domain
 
 const msgInput = document.querySelector('#message') // test commit
 const nameInput = document.querySelector('#name') //@PanChose
