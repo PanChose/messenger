@@ -1,6 +1,6 @@
 const socket = io('https://messenger-hxxk.onrender.com');
 
-// --- UI Elements ---
+// --- Элементы UI ---
 const authContainer = document.getElementById('auth-container');
 const chatContainer = document.getElementById('chat-container');
 const authForm = document.getElementById('auth-form');
@@ -13,23 +13,22 @@ const usernameInput = document.getElementById('username-input');
 const passwordInput = document.getElementById('password-input');
 
 const msgInput = document.querySelector('#message');
-const nameInput = document.querySelector('#name');
-const chatRoom = document.querySelector('#room');
+const nameInput = document.querySelector('#name'); // Скрытое поле или рид-онли
 const activity = document.querySelector('.activity');
 const chatDisplay = document.querySelector('.chat-display');
-const usersList = document.querySelector('.user-list');
-const roomList = document.querySelector('.room-list');
+const chatList = document.getElementById('chat-list'); // Список чатов слева
+const searchInput = document.getElementById('user-search');
+const currentChatDisplay = document.getElementById('current-room-display');
 
-// --- App State ---
+// --- Состояние приложения ---
 let isLoginMode = true;
-let currentRoom = "";
-let privateRecipient = null;
+let currentChatPartner = null;
+let unreadCounts = {}; // { "username": количество }
+let searchResults = [];
+let recentChats = JSON.parse(localStorage.getItem('recent_chats') || "[]");
 
-let unreadMessages = {};
+// --- 1. Авторизация (Твоя логика) ---
 
-const backToRoomBtn = document.getElementById('back-to-room-btn');
-
-// --- 1. ПРОВЕРКА ЛОГИНА ПРИ ЗАГРУЗКЕ ---
 window.addEventListener('DOMContentLoaded', () => {
     const savedName = localStorage.getItem('chat_username');
     if (savedName) {
@@ -37,35 +36,21 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- Auth Toggle Logic ---
 authToggle.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') {
-        e.preventDefault();
-        isLoginMode = !isLoginMode;
-
-        authTitle.innerText = isLoginMode ? 'Login' : 'Register';
-        authSubmit.innerText = isLoginMode ? 'Login' : 'Register';
-
-        const link = authToggle.querySelector('a');
-        const textNode = authToggle.childNodes[0];
-
-        if (isLoginMode) {
-            textNode.textContent = "Don't have an account? ";
-            link.textContent = "Register";
-        } else {
-            textNode.textContent = "Already have an account? ";
-            link.textContent = "Login";
-        }
-        authMessage.innerText = "";
-    }
+    e.preventDefault();
+    isLoginMode = !isLoginMode;
+    authTitle.innerText = isLoginMode ? 'Login' : 'Register';
+    authSubmit.innerText = isLoginMode ? 'Login' : 'Register';
+    authToggle.innerHTML = isLoginMode
+        ? "Don't have an account? <a href='#'>Register</a>"
+        : "Already have an account? <a href='#'>Login</a>";
 });
 
-// --- Auth API Integration ---
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const username = usernameInput.value;
     const password = passwordInput.value;
+
     const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
 
     try {
@@ -77,240 +62,169 @@ authForm.addEventListener('submit', async (e) => {
 
         const data = await response.json();
 
-        if (data.success) {
-            if (!isLoginMode) {
-                // После регистрации: очистка и переход на логин
-                usernameInput.value = '';
-                passwordInput.value = '';
-                isLoginMode = true;
-
-                authTitle.innerText = 'Login';
-                authSubmit.innerText = 'Login';
-                authToggle.childNodes[0].textContent = "Don't have an account? ";
-                authToggle.querySelector('a').textContent = "Register";
-
-                authMessage.style.color = '#00ff00';
-                authMessage.innerText = "Registration successful! Please login.";
-            } else {
-                // После логина: сохраняем сессию
-                localStorage.setItem('chat_username', username);
-                enterChatApp(username);
-            }
+        if (response.ok) {
+            localStorage.setItem('chat_username', username);
+            enterChatApp(username);
         } else {
-            authMessage.style.color = '#ff4444';
             authMessage.innerText = data.message;
+            authMessage.style.color = 'red';
         }
     } catch (err) {
-        authMessage.innerText = "Server connection failed.";
+        authMessage.innerText = "Error connecting to server";
     }
 });
 
 function enterChatApp(username) {
+    nameInput.value = username;
     authContainer.style.display = 'none';
     chatContainer.style.display = 'flex';
-    nameInput.value = username;
-    // Запрашиваем список комнат у сервера при входе
-    socket.emit('requestRoomList');
+
+    // Сообщаем серверу, что мы онлайн
+    socket.emit('enterRoom', { name: username, room: 'global' });
+    renderChatList();
 }
 
-// LOGOUT
 document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('chat_username');
     location.reload();
 });
 
-// --- Chat Logic ---
+// --- 2. Логика поиска и списка чатов (WhatsApp Style) ---
 
-function sendMessage(e) {
-    e.preventDefault();
-    if (nameInput.value && msgInput.value) {
-        if (privateRecipient) {
-            // Если выбран получатель ЛС — отправляем приватное
-            socket.emit('privateMessage', {
-                sender: nameInput.value,
-                recipient: privateRecipient,
-                text: msgInput.value
-            });
-        } else if (currentRoom) {
-            // Иначе отправляем в общую комнату
-            socket.emit('message', {
-                name: nameInput.value,
-                text: msgInput.value
-            });
+searchInput.addEventListener('input', async (e) => {
+    const q = e.target.value;
+    const me = nameInput.value;
+
+    if (q.length > 0) {
+        try {
+            const res = await fetch(`/users/search?q=${q}&me=${me}`);
+            searchResults = await res.json();
+        } catch (err) {
+            console.error("Search error", err);
         }
-        msgInput.value = "";
+    } else {
+        searchResults = [];
     }
+    renderChatList();
+});
+
+function renderChatList() {
+    chatList.innerHTML = '';
+
+    // Если в поиске что-то есть — показываем результаты. Иначе — список недавних.
+    const displayUsers = searchInput.value.length > 0 ? searchResults : recentChats;
+
+    displayUsers.forEach(username => {
+        const li = document.createElement('li');
+        li.className = 'chat-item';
+        if (username === currentChatPartner) li.classList.add('active');
+
+        const unread = unreadCounts[username] || 0;
+
+        li.innerHTML = `
+            <div class="chat-info">
+                <span class="chat-name">${username}</span>
+                ${unread > 0 ? `<span class="badge pulse">${unread}</span>` : ''}
+            </div>
+        `;
+
+        li.onclick = () => openChat(username);
+        chatList.appendChild(li);
+    });
+}
+
+function openChat(username) {
+    currentChatPartner = username;
+    unreadCounts[username] = 0; // Сбрасываем уведомления
+
+    // Добавляем в список недавних, если его там нет
+    if (!recentChats.includes(username)) {
+        recentChats.unshift(username);
+        localStorage.setItem('recent_chats', JSON.stringify(recentChats));
+    }
+
+    currentChatDisplay.textContent = username;
+    currentChatDisplay.style.color = 'var(--accent)';
+    chatDisplay.innerHTML = ''; // Очищаем окно чата для нового собеседника
+
+    searchInput.value = '';
+    searchResults = [];
+    renderChatList();
     msgInput.focus();
 }
 
-function enterRoom(e) {
-    if (e) e.preventDefault();
-    const newRoom = chatRoom.value.trim();
+// --- 3. Работа с сообщениями ---
 
-    if (nameInput.value && newRoom) {
-        if (newRoom === currentRoom) return;
-
-        socket.emit('enterRoom', {
-            name: nameInput.value,
-            room: newRoom
+function sendMessage(e) {
+    e.preventDefault();
+    if (msgInput.value && currentChatPartner) {
+        socket.emit('privateMessage', {
+            sender: nameInput.value,
+            recipient: currentChatPartner,
+            text: msgInput.value
         });
-
-        currentRoom = newRoom;
-        privateRecipient = null; // Сбрасываем DM при смене комнаты
-        roomMessagesBackup = ""; // Очищаем бэкап
-        document.querySelector('#current-room-display').textContent = newRoom;
-        document.getElementById('back-to-room-btn').style.display = 'none';
-        chatDisplay.innerHTML = "";
+        msgInput.value = "";
+    } else if (!currentChatPartner) {
+        alert("Please select a user to chat with");
     }
 }
 
 document.querySelector('.form-msg').addEventListener('submit', sendMessage);
-document.querySelector('.form-join').addEventListener('submit', enterRoom);
-
-msgInput.addEventListener('keypress', () => {
-    socket.emit('activity', nameInput.value);
-});
-
-// --- Socket Listeners ---
 
 socket.on("message", (data) => {
-    if (data.isPrivate && privateRecipient !== data.name && data.name !== nameInput.value && data.name !== 'Admin') {
+    const myName = nameInput.value;
 
-        // Увеличиваем счетчик непрочитанных
-        unreadMessages[data.name] = (unreadMessages[data.name] || 0) + 1;
-
-        // Обновляем список пользователей, чтобы показать уведомление
-        showUsers(UsersState.users); // Используй актуальный массив пользователей
-        return; // ВАЖНО: прерываем функцию, чтобы сообщение не рисовалось в чате
-    }
-
-    activity.textContent = "";
-    const li = document.createElement('li');
-    li.className = 'post';
-
-    if (data.name === nameInput.value) li.className = 'post post--right';
-    else if (data.name !== 'Admin') li.className = 'post post--left';
-
-    // Если сообщение приватное, добавляем метку и меняем цвет рамки
-    const privateTag = data.isPrivate ? '<span style="color: #ffaa00; font-size: 0.8rem; margin-right: 5px; font-weight: bold;">[Private]</span>' : '';
+    // Если это приватное сообщение
     if (data.isPrivate) {
-        li.style.border = "1px solid #ffaa00";
-        li.style.boxShadow = "0 0 5px rgba(255, 170, 0, 0.2)";
+        // Если сообщение мне, но от того, кто сейчас НЕ открыт
+        if (data.name !== currentChatPartner && data.name !== myName && data.name !== 'Admin') {
+            const sender = data.name;
+            unreadCounts[sender] = (unreadCounts[sender] || 0) + 1;
+
+            // Поднимаем отправителя в топ списка чатов
+            recentChats = [sender, ...recentChats.filter(u => u !== sender)];
+            localStorage.setItem('recent_chats', JSON.stringify(recentChats));
+
+            renderChatList();
+            return; // Не печатаем сообщение в текущее окно
+        }
     }
 
-    li.innerHTML = data.name !== 'Admin'
-        ? `<div class="post__header">${privateTag}<span class="post__header--name">${data.name}</span><span class="post__header--time">${data.time}</span></div><div class="post__text">${data.text}</div>`
-        : `<div class="post__text">${data.text}</div>`;
+    // Печатаем, если: это текущий чат, или это наше сообщение, или это Админ
+    if (data.name === currentChatPartner || data.name === myName || data.name === 'Admin') {
+        const li = document.createElement('li');
+        li.className = 'post';
 
-    chatDisplay.appendChild(li);
-    chatDisplay.scrollTop = chatDisplay.scrollHeight;
-});
+        if (data.name === myName) li.classList.add('post--right');
+        else if (data.name !== 'Admin') li.classList.add('post--left');
+        else li.classList.add('post--admin');
 
-socket.on('userList', ({ users }) => {
-    showUsers(users);
-});
-
-socket.on('roomList', ({ rooms }) => {
-    showRooms(rooms);
-});
-
-let roomMessagesBackup = [];
-
-function showUsers(users) {
-    usersList.innerHTML = '';
-    if (users) {
-        users.forEach(user => {
-            const li = document.createElement('li');
-            li.style.display = 'flex';
-            li.style.justifyContent = 'space-between';
-            li.style.alignItems = 'center';
-            li.style.cursor = 'pointer';
-
-            // Имя пользователя
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = user.name;
-            li.appendChild(nameSpan);
-
-            // Значок уведомления
-            if (unreadMessages[user.name]) {
-                const badge = document.createElement('span');
-                badge.textContent = unreadMessages[user.name];
-                badge.style.background = '#ff4444';
-                badge.style.color = 'white';
-                badge.style.borderRadius = '50%';
-                badge.style.padding = '2px 7px';
-                badge.style.fontSize = '0.7rem';
-                badge.style.fontWeight = 'bold';
-                li.appendChild(badge);
-                li.style.color = '#ffaa00'; // Подсветка ника
-            }
-
-            if (user.name !== nameInput.value) {
-                li.onclick = () => {
-                    // При открытии чата сбрасываем уведомления
-                    delete unreadMessages[user.name];
-
-                    // Твоя логика открытия DM
-                    roomMessagesBackup = chatDisplay.innerHTML;
-                    chatDisplay.innerHTML = "";
-                    privateRecipient = user.name;
-                    document.querySelector('#current-room-display').textContent = `DM: ${user.name}`;
-                    document.getElementById('back-to-room-btn').style.display = 'block';
-
-                    showUsers(users); // Перерисовываем список, чтобы убрать значок
-                };
-            }
-            usersList.appendChild(li);
-        });
+        li.innerHTML = `
+            <div class="post__header">
+                <span class="post__header--name">${data.name}</span>
+                <span class="post__header--time">${data.time}</span>
+            </div>
+            <div class="post__text">${data.text}</div>
+        `;
+        chatDisplay.appendChild(li);
+        chatDisplay.scrollTop = chatDisplay.scrollHeight;
     }
-}
-
-document.getElementById('back-to-room-btn').addEventListener('click', () => {
-    privateRecipient = null;
-    document.querySelector('#current-room-display').textContent = currentRoom;
-    document.querySelector('#current-room-display').style.color = 'var(--text-main)';
-    document.getElementById('back-to-room-btn').style.display = 'none';
-
-    // Восстанавливаем сообщения комнаты из бэкапа
-    chatDisplay.innerHTML = roomMessagesBackup;
-    chatDisplay.scrollTop = chatDisplay.scrollHeight;
 });
 
-backToRoomBtn.addEventListener('click', () => {
-    privateRecipient = null; // Сбрасываем получателя ЛС
-    document.querySelector('#current-room-display').textContent = currentRoom;
-    document.querySelector('#current-room-display').style.color = 'var(--text-main)';
-    backToRoomBtn.style.display = 'none'; // Прячем кнопку
-
-    // Системное сообщение
-    const sysMsg = document.createElement('li');
-    sysMsg.innerHTML = `<div style="text-align:center; color:var(--accent); font-size:0.8rem; margin:10px 0;">--- Returned to ${currentRoom} ---</div>`;
-    chatDisplay.appendChild(sysMsg);
-    chatDisplay.scrollTop = chatDisplay.scrollHeight;
-});
-
-function showRooms(rooms) {
-    roomList.innerHTML = '';
-    if (rooms) {
-        rooms.forEach(room => {
-            const li = document.createElement('li');
-            li.textContent = room;
-            li.style.cursor = 'pointer';
-            li.onclick = (e) => {
-                e.preventDefault();
-                chatRoom.value = room;
-                enterRoom(); // Используем функцию напрямую без лишних ивентов
-            };
-            roomList.appendChild(li);
-        });
+// --- Индикация печатания ---
+msgInput.addEventListener('keypress', () => {
+    if (currentChatPartner) {
+        socket.emit('activity', nameInput.value);
     }
-}
+});
 
 let activityTimer;
 socket.on("activity", (name) => {
-    activity.textContent = `${name} is typing...`;
-    clearTimeout(activityTimer);
-    activityTimer = setTimeout(() => {
-        activity.textContent = "";
-    }, 3000);
+    if (name === currentChatPartner) {
+        activity.textContent = `${name} is typing...`;
+        clearTimeout(activityTimer);
+        activityTimer = setTimeout(() => {
+            activity.textContent = "";
+        }, 3000);
+    }
 });

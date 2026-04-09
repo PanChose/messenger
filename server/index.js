@@ -155,6 +155,24 @@ const UsersState = {
     }
 }
 
+// Zoek alle gebruikers (behalve jezelf)
+app.get('/users/search', async (req, res) => {
+    const { q, me } = req.query;
+    try {
+        // Правильный вариант: оба условия в одном объекте
+        const users = await User.find({
+            username: {
+                $regex: q,
+                $options: 'i',
+                $ne: me // "не равен мне" и "подходит под поиск" одновременно
+            }
+        }).limit(10);
+        res.json(users.map(u => u.username));
+    } catch (err) {
+        res.status(500).json({ message: "Search failed" });
+    }
+});
+
 io.on('connection', socket => {
     console.log(`User ${socket.id} connected`)
 
