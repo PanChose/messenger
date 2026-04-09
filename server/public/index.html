@@ -50,7 +50,9 @@
                 <h2 id="current-room-display">Select a chat to start</h2>
                 <p class="activity"></p>
             </div>
-            <button id="back-to-room-btn" style="display: none;">Back</button>
+            <div class="header-actions">
+                <button id="info-btn" class="icon-btn">i</button> <button id="back-to-room-btn" style="display: none;">Back</button>
+            </div>
         </header>
 
         <ul class="chat-display">
@@ -67,6 +69,17 @@
         </footer>
 
     </section>
+
+    <div id="info-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Information</h3>
+            <div class="info-text">
+                <p>Добро пожаловать в мессенджер!</p>
+                <p>Здесь ты можешь общаться приватно. Все сообщения сохраняются в базе данных.</p>
+            </div>
+        </div>
+    </div>
 </main>
 
 </body>

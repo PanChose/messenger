@@ -288,3 +288,25 @@ document.getElementById('back-to-room-btn').addEventListener('click', () => {
     currentChatPartner = null;
     document.querySelector('#current-room-display').textContent = "Select a chat";
 });
+
+// Логика для окна информации
+const infoBtn = document.getElementById('info-btn');
+const infoModal = document.getElementById('info-modal');
+const closeBtn = document.querySelector('.close-modal');
+
+// Открыть окно
+infoBtn.onclick = () => {
+    infoModal.style.display = "block";
+}
+
+// Закрыть окно при нажатии на крестик
+closeBtn.onclick = () => {
+    infoModal.style.display = "none";
+}
+
+// Закрыть окно при нажатии вне его области
+window.onclick = (event) => {
+    if (event.target == infoModal) {
+        infoModal.style.display = "none";
+    }
+}
