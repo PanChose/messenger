@@ -1,6 +1,6 @@
 const socket = io('https://messenger-hxxk.onrender.com');
 
-// Auth Elements
+// --- UI Elements ---
 const authContainer = document.getElementById('auth-container');
 const chatContainer = document.getElementById('chat-container');
 const authForm = document.getElementById('auth-form');
@@ -9,7 +9,9 @@ const authSubmit = document.getElementById('auth-submit');
 const authToggle = document.getElementById('auth-toggle');
 const authMessage = document.getElementById('auth-message');
 
-// Chat Elements
+const usernameInput = document.getElementById('username-input');
+const passwordInput = document.getElementById('password-input');
+
 const msgInput = document.querySelector('#message');
 const nameInput = document.querySelector('#name');
 const chatRoom = document.querySelector('#room');
@@ -18,11 +20,19 @@ const chatDisplay = document.querySelector('.chat-display');
 const usersList = document.querySelector('.user-list');
 const roomList = document.querySelector('.room-list');
 
+// --- App State ---
 let isLoginMode = true;
-let currentRoom = ""; // Store the room we are currently in
+let currentRoom = "";
 
-// --- FIXED: Auth UI Toggle ---
-// Instead of innerHTML, we change only text nodes to keep event listeners alive
+// Check if user is already logged in on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const savedName = localStorage.getItem('username');
+    if (savedName) {
+        enterChatApp(savedName);
+    }
+});
+
+// --- Auth Toggle Logic ---
 authToggle.addEventListener('click', (e) => {
     if (e.target.tagName === 'A') {
         e.preventDefault();
@@ -32,31 +42,29 @@ authToggle.addEventListener('click', (e) => {
         authSubmit.innerText = isLoginMode ? 'Login' : 'Register';
 
         const link = authToggle.querySelector('a');
-        const text = authToggle.childNodes[0];
+        const textNode = authToggle.childNodes[0];
 
         if (isLoginMode) {
-            text.textContent = "Don't have an account? ";
+            textNode.textContent = "Don't have an account? ";
             link.textContent = "Register";
         } else {
-            text.textContent = "Already have an account? ";
+            textNode.textContent = "Already have an account? ";
             link.textContent = "Login";
         }
-        authMessage.innerText = ""; // Clear messages on toggle
+        authMessage.innerText = "";
     }
 });
 
-// --- Handle Login/Register ---
+// --- Auth API Integration ---
 authForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const usernameInput = document.getElementById('username-input');
-    const passwordInput = document.getElementById('password-input');
+    e.preventDefault(); // Prevent page reload
 
     const username = usernameInput.value;
     const password = passwordInput.value;
-    const path = isLoginMode ? '/auth/login' : '/auth/register';
+    const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
 
     try {
-        const response = await fetch(path, {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -66,55 +74,140 @@ authForm.addEventListener('submit', async (e) => {
 
         if (data.success) {
             if (!isLoginMode) {
-                // SUCCESS REGISTRATION: Clear and Switch to Login
                 usernameInput.value = '';
                 passwordInput.value = '';
                 isLoginMode = true;
 
-                // Trigger visual toggle back to login
                 authTitle.innerText = 'Login';
                 authSubmit.innerText = 'Login';
                 authToggle.childNodes[0].textContent = "Don't have an account? ";
                 authToggle.querySelector('a').textContent = "Register";
 
-                authMessage.style.color = 'green';
-                authMessage.innerText = "Registration successful! Now login.";
+                authMessage.style.color = '#00ff00';
+                authMessage.innerText = "Registration successful! Please login.";
             } else {
-                startApp(username);
+                localStorage.setItem('username', username);
+                enterChatApp(username);
             }
         } else {
-            authMessage.style.color = 'red';
+            authMessage.style.color = '#ff4444';
             authMessage.innerText = data.message;
         }
     } catch (err) {
-        authMessage.innerText = "Error connecting to server.";
+        authMessage.innerText = "Server connection failed.";
     }
 });
 
-function startApp(username) {
+function enterChatApp(username) {
     authContainer.style.display = 'none';
     chatContainer.style.display = 'flex';
     nameInput.value = username;
 }
 
-// --- FIXED: Prevent entering the same room ---
-function enterRoom(e) {
-    e.preventDefault();
-    const targetRoom = chatRoom.value.trim();
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('username');
+    location.reload();
+});
 
-    if (!nameInput.value || !targetRoom) return;
+// --- Chat Logic ---
 
-    if (targetRoom === currentRoom) {
-        alert("You are already in this room!"); // Simple alert or status message
-        return;
+function sendMessage(e) {
+    e.preventDefault(); // CRITICAL: Stop reload
+    if (nameInput.value && msgInput.value && currentRoom) {
+        socket.emit('message', {
+            name: nameInput.value,
+            text: msgInput.value
+        });
+        msgInput.value = "";
     }
-
-    socket.emit('enterRoom', {
-        name: nameInput.value,
-        room: targetRoom
-    });
-
-    currentRoom = targetRoom; // Update current room
-    document.querySelector('#current-room-display').textContent = targetRoom;
-    chatDisplay.innerHTML = ""; // Clear chat when switching rooms
+    msgInput.focus();
 }
+
+function enterRoom(e) {
+    e.preventDefault(); // CRITICAL: Stop reload
+    const newRoom = chatRoom.value.trim();
+
+    if (nameInput.value && newRoom) {
+        if (newRoom === currentRoom) {
+            alert("You are already in this room!");
+            return;
+        }
+
+        socket.emit('enterRoom', {
+            name: nameInput.value,
+            room: newRoom
+        });
+
+        currentRoom = newRoom;
+        document.querySelector('#current-room-display').textContent = newRoom;
+        chatDisplay.innerHTML = "";
+    }
+}
+
+// Ensure these listeners are correctly attached
+document.querySelector('.form-msg').addEventListener('submit', sendMessage);
+document.querySelector('.form-join').addEventListener('submit', enterRoom);
+
+msgInput.addEventListener('keypress', () => {
+    socket.emit('activity', nameInput.value);
+});
+
+// --- Socket Listeners ---
+
+socket.on("message", (data) => {
+    const li = document.createElement('li');
+    li.className = 'post';
+
+    if (data.name === nameInput.value) li.className = 'post post--right';
+    else if (data.name !== 'Admin') li.className = 'post post--left';
+
+    if (data.name !== 'Admin') {
+        li.innerHTML = `
+            <div class="post__header">
+                <span class="post__header--name">${data.name}</span>
+                <span class="post__header--time">${data.time}</span>
+            </div>
+            <div class="post__text">${data.text}</div>`;
+    } else {
+        li.innerHTML = `<div class="post__text">${data.text}</div>`;
+    }
+    chatDisplay.appendChild(li);
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+});
+
+socket.on('userList', ({ users }) => {
+    usersList.innerHTML = '';
+    if (users) {
+        users.forEach(user => {
+            const li = document.createElement('li');
+            li.textContent = user.name;
+            usersList.appendChild(li);
+        });
+    }
+});
+
+socket.on('roomList', ({ rooms }) => {
+    roomList.innerHTML = '';
+    if (rooms) {
+        rooms.forEach(room => {
+            const li = document.createElement('li');
+            li.textContent = room;
+            li.style.cursor = 'pointer';
+            li.onclick = (e) => {
+                e.preventDefault();
+                chatRoom.value = room;
+                document.querySelector('.form-join').dispatchEvent(new Event('submit'));
+            };
+            roomList.appendChild(li);
+        });
+    }
+});
+
+let activityTimer;
+socket.on("activity", (name) => {
+    activity.textContent = `${name} is typing...`;
+    clearTimeout(activityTimer);
+    activityTimer = setTimeout(() => {
+        activity.textContent = "";
+    }, 3000);
+});
