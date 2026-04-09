@@ -9,6 +9,7 @@
     <script defer src="app.js"></script>
 </head>
 <body>
+
 <div id="auth-container">
     <div class="auth-box">
         <h2 id="auth-title">Login</h2>
@@ -23,6 +24,7 @@
 </div>
 
 <main class="app-container" id="chat-container" style="display: none;">
+
     <aside class="side-bar">
         <div class="sidebar-header">
             <h2>Chats</h2>
@@ -30,10 +32,10 @@
         </div>
 
         <div class="search-container">
-            <input type="text" id="user-search" placeholder="Search or start new chat...">
+            <input type="text" id="user-search" placeholder="Search users...">
         </div>
 
-        <div class="section">
+        <div class="section chat-list-wrapper">
             <ul id="chat-list" class="user-list">
             </ul>
         </div>
@@ -42,24 +44,30 @@
     </aside>
 
     <section class="chat-window">
+
         <header class="chat-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <h2 id="current-room-display">Select a Room</h2>
-                <button id="back-to-room-btn" style="display: none; padding: 5px 10px; background: #444; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 0.8rem;">🔙 Back to Room</button>
+            <div class="header-info">
+                <h2 id="current-room-display">Select a chat to start</h2>
+                <p class="activity"></p>
             </div>
-            <p class="activity"></p>
+            <button id="back-to-room-btn" style="display: none;">Back</button>
         </header>
-        <ul class="chat-display"></ul>
+
+        <ul class="chat-display">
+            <div class="welcome-screen">
+                <p>Welcome! Search for a user on the left to start messaging.</p>
+            </div>
+        </ul>
+
         <footer class="input-area">
             <form class="form-msg">
-                <input type="text" id="message" placeholder="Your message" required>
-                <button type="submit">Send</button>
+                <input type="text" id="message" placeholder="Type a message..." autocomplete="off">
+                <button type="submit" class="send-button">Send</button>
             </form>
         </footer>
+
     </section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
