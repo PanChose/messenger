@@ -145,10 +145,7 @@ function enterRoom(e) {
     const newRoom = chatRoom.value.trim();
 
     if (nameInput.value && newRoom) {
-        if (newRoom === currentRoom) {
-            alert("You are already in this room!");
-            return;
-        }
+        if (newRoom === currentRoom) return;
 
         socket.emit('enterRoom', {
             name: nameInput.value,
@@ -156,10 +153,10 @@ function enterRoom(e) {
         });
 
         currentRoom = newRoom;
-        privateRecipient = null;
-        backToRoomBtn.style.display = 'none';
-        document.querySelector('#current-room-display').style.color = 'var(--text-main)';
+        privateRecipient = null; // Сбрасываем DM при смене комнаты
+        roomMessagesBackup = ""; // Очищаем бэкап
         document.querySelector('#current-room-display').textContent = newRoom;
+        document.getElementById('back-to-room-btn').style.display = 'none';
         chatDisplay.innerHTML = "";
     }
 }
@@ -204,6 +201,8 @@ socket.on('roomList', ({ rooms }) => {
     showRooms(rooms);
 });
 
+let roomMessagesBackup = [];
+
 function showUsers(users) {
     usersList.innerHTML = '';
     if (users) {
@@ -211,29 +210,42 @@ function showUsers(users) {
             const li = document.createElement('li');
             li.textContent = user.name;
 
-            // Не даем писать ЛС самому себе
             if (user.name !== nameInput.value) {
                 li.style.cursor = 'pointer';
-                li.title = "Click to send private message";
-
-                // При клике переходим в режим ЛС
                 li.onclick = () => {
-                    privateRecipient = user.name;
-                    document.querySelector('#current-room-display').textContent = `Private with: ${user.name}`;
-                    document.querySelector('#current-room-display').style.color = '#ffaa00';
-                    backToRoomBtn.style.display = 'block';
+                    // 1. Сохраняем текущие сообщения комнаты, чтобы не потерять их
+                    roomMessagesBackup = chatDisplay.innerHTML;
 
-                    // Добавляем системное сообщение-разделитель в чат
+                    // 2. Очищаем чат для нового приватного диалога
+                    chatDisplay.innerHTML = "";
+
+                    // 3. Устанавливаем режим DM
+                    privateRecipient = user.name;
+                    document.querySelector('#current-room-display').textContent = `DM: ${user.name}`;
+                    document.querySelector('#current-room-display').style.color = '#ffaa00';
+                    document.getElementById('back-to-room-btn').style.display = 'block';
+
+                    // Сообщение о начале чата
                     const sysMsg = document.createElement('li');
-                    sysMsg.innerHTML = `<div style="text-align:center; color:#ffaa00; font-size:0.8rem; margin:10px 0;">--- Private chat started with ${user.name} ---</div>`;
+                    sysMsg.innerHTML = `<div style="text-align:center; color:#ffaa00; font-size:0.8rem; margin:10px 0;">--- Private conversation with ${user.name} ---</div>`;
                     chatDisplay.appendChild(sysMsg);
-                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
                 };
             }
             usersList.appendChild(li);
         });
     }
 }
+
+document.getElementById('back-to-room-btn').addEventListener('click', () => {
+    privateRecipient = null;
+    document.querySelector('#current-room-display').textContent = currentRoom;
+    document.querySelector('#current-room-display').style.color = 'var(--text-main)';
+    document.getElementById('back-to-room-btn').style.display = 'none';
+
+    // Восстанавливаем сообщения комнаты из бэкапа
+    chatDisplay.innerHTML = roomMessagesBackup;
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+});
 
 backToRoomBtn.addEventListener('click', () => {
     privateRecipient = null; // Сбрасываем получателя ЛС
