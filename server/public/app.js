@@ -133,22 +133,41 @@ function renderChatList() {
     });
 }
 
-function openChat(username) {
+async function openChat(username) {
     currentChatPartner = username;
-    unreadCounts[username] = 0; // Сбрасываем уведомления
+    unreadCounts[username] = 0;
 
-    // Добавляем в список недавних, если его там нет
+    const myName = localStorage.getItem('chat_username');
+
+    // Очищаем экран и показываем индикатор загрузки (по желанию)
+    chatDisplay.innerHTML = '<li style="text-align:center; color:gray;">Loading history...</li>';
+
+    // Загружаем историю из БД
+    try {
+        const response = await fetch(`/messages/${myName}/${username}`);
+        const history = await response.json();
+
+        chatDisplay.innerHTML = ''; // Убираем надпись Loading
+
+        history.forEach(msg => {
+            // Используем ту же функцию отрисовки, что и для новых сообщений
+            displayMessage({
+                name: msg.sender,
+                text: msg.text,
+                time: msg.time
+            });
+        });
+    } catch (err) {
+        console.error("Failed to load history", err);
+        chatDisplay.innerHTML = '';
+    }
+
+    // Остальная твоя логика (рендер списка, фокус и т.д.)
+    currentChatDisplay.textContent = username;
     if (!recentChats.includes(username)) {
         recentChats.unshift(username);
         localStorage.setItem('recent_chats', JSON.stringify(recentChats));
     }
-
-    currentChatDisplay.textContent = username;
-    currentChatDisplay.style.color = 'var(--accent)';
-    chatDisplay.innerHTML = ''; // Очищаем окно чата для нового собеседника
-
-    searchInput.value = '';
-    searchResults = [];
     renderChatList();
     msgInput.focus();
 }

@@ -7,6 +7,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import bcrypt from 'bcryptjs'
 import User from './models/User.js'
+import Message from './models/Message.js';
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -55,6 +56,21 @@ app.post('/auth/login', async (req, res) => {
     }
 })
 
+app.get('/messages/:user1/:user2', async (req, res) => {
+    const { user1, user2 } = req.params;
+    try {
+        const history = await Message.find({
+            $or: [
+                { sender: user1, recipient: user2 },
+                { sender: user2, recipient: user1 }
+            ]
+        }).sort({ timestamp: 1 }); // Сортируем от старых к новым
+        res.json(history);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching history" });
+    }
+});
+
 // --- Search Route (WhatsApp Style) ---
 app.get('/users/search', async (req, res) => {
     const { q, me } = req.query
@@ -88,18 +104,26 @@ io.on('connection', (socket) => {
     })
 
     // --- Логика личных сообщений ---
-    socket.on('privateMessage', ({ sender, recipient, text }) => {
-        const recipientSocketId = onlineUsers.get(recipient)
-        const msg = buildMsg(sender, text)
-        msg.isPrivate = true
+    socket.on('privateMessage', async ({ sender, recipient, text }) => {
+        const msgData = buildMsg(sender, text);
 
-        // Отправляем получателю (если он в сети)
+        // 1. Сохраняем в базу данных
+        const newMessage = new Message({
+            sender,
+            recipient,
+            text: msgData.text,
+            time: msgData.time
+        });
+        await newMessage.save();
+
+        // 2. Отправляем через сокеты как и раньше
+        const recipientSocketId = onlineUsers.get(recipient);
+        const socketPayload = { ...msgData, isPrivate: true };
+
         if (recipientSocketId) {
-            io.to(recipientSocketId).emit('message', msg)
+            io.to(recipientSocketId).emit('message', socketPayload);
         }
-
-        // Отправляем обратно отправителю, чтобы он видел своё сообщение в чате
-        socket.emit('message', msg)
+        socket.emit('message', socketPayload);
     })
 
     socket.on('activity', (name) => {
