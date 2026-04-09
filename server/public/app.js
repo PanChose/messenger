@@ -133,43 +133,60 @@ function renderChatList() {
     });
 }
 
-async function openChat(username) {
-    currentChatPartner = username;
-    unreadCounts[username] = 0;
-
+// Функция для отрисовки одного сообщения (вынеси её отдельно, чтобы не дублировать код)
+function renderSingleMessage(data) {
+    const li = document.createElement('li');
     const myName = localStorage.getItem('chat_username');
 
-    // Очищаем экран и показываем индикатор загрузки (по желанию)
+    li.className = 'post';
+    if (data.name === myName) li.classList.add('post--right');
+    else if (data.name !== 'Admin') li.classList.add('post--left');
+
+    li.innerHTML = `
+        <div class="post__header">
+            <span class="post__header--name">${data.name}</span>
+            <span class="post__header--time">${data.time}</span>
+        </div>
+        <div class="post__text">${data.text}</div>
+    `;
+    chatDisplay.appendChild(li);
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+}
+
+// Изменяем логику клика на пользователя
+async function openChat(targetName) {
+    privateRecipient = targetName;
+    const myName = localStorage.getItem('chat_username');
+
+    // 1. Меняем заголовок
+    document.querySelector('#current-room-display').textContent = `Chat with: ${targetName}`;
+    document.querySelector('#current-room-display').style.color = '#ffaa00';
+
+    // 2. Очищаем экран перед загрузкой
     chatDisplay.innerHTML = '<li style="text-align:center; color:gray;">Loading history...</li>';
 
-    // Загружаем историю из БД
+    // 3. ЗАГРУЖАЕМ ИСТОРИЮ ИЗ БД
     try {
-        const response = await fetch(`/messages/${myName}/${username}`);
+        const response = await fetch(`/messages/${myName}/${targetName}`);
         const history = await response.json();
 
-        chatDisplay.innerHTML = ''; // Убираем надпись Loading
+        chatDisplay.innerHTML = ""; // Убираем надпись Loading
+
+        if (history.length === 0) {
+            chatDisplay.innerHTML = '<li style="text-align:center; color:gray; margin-top:20px;">No messages yet. Say hi!</li>';
+        }
 
         history.forEach(msg => {
-            // Используем ту же функцию отрисовки, что и для новых сообщений
-            displayMessage({
+            renderSingleMessage({
                 name: msg.sender,
                 text: msg.text,
                 time: msg.time
             });
         });
     } catch (err) {
-        console.error("Failed to load history", err);
-        chatDisplay.innerHTML = '';
+        console.error("Error loading history:", err);
+        chatDisplay.innerHTML = '<li style="text-align:center; color:red;">Failed to load history</li>';
     }
-
-    // Остальная твоя логика (рендер списка, фокус и т.д.)
-    currentChatDisplay.textContent = username;
-    if (!recentChats.includes(username)) {
-        recentChats.unshift(username);
-        localStorage.setItem('recent_chats', JSON.stringify(recentChats));
-    }
-    renderChatList();
-    msgInput.focus();
 }
 
 // --- 3. Работа с сообщениями ---
