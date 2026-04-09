@@ -16,6 +16,10 @@ const chatRoom = document.querySelector('#room');
 const activity = document.querySelector('.activity');
 const chatDisplay = document.querySelector('.chat-display');
 
+// Use querySelector with dot for classes
+const usersList = document.querySelector('.user-list');
+const roomList = document.querySelector('.room-list');
+
 let isLoginMode = true;
 
 // --- Auth UI Toggle ---
@@ -32,8 +36,11 @@ authToggle.addEventListener('click', (e) => {
 // --- Handle Login/Register ---
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('username-input').value;
-    const password = document.getElementById('password-input').value;
+    const usernameInput = document.getElementById('username-input');
+    const passwordInput = document.getElementById('password-input');
+    const username = usernameInput.value;
+    const password = passwordInput.value;
+
     const path = isLoginMode ? '/auth/login' : '/auth/register';
 
     try {
@@ -47,13 +54,17 @@ authForm.addEventListener('submit', async (e) => {
 
         if (data.success) {
             if (!isLoginMode) {
-                // If registered, switch to login
+                // 1) ТРЕБОВАНИЕ: Сброс полей и перекидывание на логин
+                usernameInput.value = '';
+                passwordInput.value = '';
+
                 isLoginMode = true;
-                authToggle.click();
+                updateAuthUI(); // Переключаем заголовки и кнопки на Login
+
                 authMessage.style.color = 'green';
-                authMessage.innerText = "Registration successful! Please login.";
+                authMessage.innerText = "Registration successful! Please login with your new credentials.";
             } else {
-                // If logged in, show chat
+                // Вход выполнен
                 startApp(username);
             }
         } else {
@@ -63,6 +74,21 @@ authForm.addEventListener('submit', async (e) => {
     } catch (err) {
         authMessage.innerText = "Error connecting to server.";
     }
+});
+
+// Вынес обновление интерфейса в отдельную функцию для удобства
+function updateAuthUI() {
+    authTitle.innerText = isLoginMode ? 'Login' : 'Register';
+    authSubmit.innerText = isLoginMode ? 'Login' : 'Register';
+    authToggle.innerHTML = isLoginMode
+        ? "Don't have an account? <a href='#'>Register</a>"
+        : "Already have an account? <a href='#'>Login</a>";
+}
+
+authToggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    isLoginMode = !isLoginMode;
+    updateAuthUI();
 });
 
 function startApp(username) {
@@ -125,3 +151,47 @@ socket.on("activity", (name) => {
     clearTimeout(activityTimer);
     activityTimer = setTimeout(() => { activity.textContent = "" }, 3000);
 });
+
+// --- Listen for Room and User updates from Server ---
+
+socket.on('userList', ({ users }) => {
+    showUsers(users);
+});
+
+socket.on('roomList', ({ rooms }) => {
+    showRooms(rooms);
+});
+
+function showUsers(users) {
+    usersList.innerHTML = ''; // Clear current list
+    if (users) {
+        users.forEach(user => {
+            const li = document.createElement('li');
+            li.textContent = user.name;
+            // Add a style class if needed
+            li.style.listStyle = 'none';
+            li.style.padding = '5px 0';
+            usersList.appendChild(li);
+        });
+    }
+}
+
+function showRooms(rooms) {
+    roomList.innerHTML = ''; // Clear current list
+    if (rooms) {
+        rooms.forEach(room => {
+            const li = document.createElement('li');
+            li.textContent = room;
+            li.style.listStyle = 'none';
+            li.style.cursor = 'pointer';
+            li.style.color = 'var(--accent)';
+
+            // Click to quickly join room
+            li.onclick = () => {
+                document.querySelector('#room').value = room;
+                document.querySelector('.form-join').dispatchEvent(new Event('submit'));
+            };
+            roomList.appendChild(li);
+        });
+    }
+}
