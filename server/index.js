@@ -98,6 +98,54 @@ app.post('/auth/register', async (req, res) => {
     }
 });
 
+// --- Login API Endpoint ---
+app.post('/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        // 1. Basic validation
+        if (!username || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Username and password are required."
+            });
+        }
+
+        // 2. Find user by username
+        const user = await User.findOne({ username });
+        if (!user) {
+            // Using generic message for security reasons
+            return res.status(401).json({
+                success: false,
+                message: "Invalid username or password."
+            });
+        }
+
+        // 3. Compare provided password with hashed password in DB
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid username or password."
+            });
+        }
+
+        // 4. Success response
+        // Note: In a real app, you would generate a JWT token here
+        return res.status(200).json({
+            success: true,
+            message: `Welcome back, ${user.username}!`,
+            userId: user._id
+        });
+
+    } catch (error) {
+        console.error("Login Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error during login."
+        });
+    }
+});
 
 // state
 const UsersState = {
