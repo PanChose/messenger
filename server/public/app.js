@@ -24,6 +24,9 @@ const roomList = document.querySelector('.room-list');
 let isLoginMode = true;
 let currentRoom = "";
 let privateRecipient = null;
+
+let unreadMessages = {};
+
 const backToRoomBtn = document.getElementById('back-to-room-btn');
 
 // --- 1. ПРОВЕРКА ЛОГИНА ПРИ ЗАГРУЗКЕ ---
@@ -171,6 +174,16 @@ msgInput.addEventListener('keypress', () => {
 // --- Socket Listeners ---
 
 socket.on("message", (data) => {
+    if (data.isPrivate && privateRecipient !== data.name && data.name !== nameInput.value && data.name !== 'Admin') {
+
+        // Увеличиваем счетчик непрочитанных
+        unreadMessages[data.name] = (unreadMessages[data.name] || 0) + 1;
+
+        // Обновляем список пользователей, чтобы показать уведомление
+        showUsers(UsersState.users); // Используй актуальный массив пользователей
+        return; // ВАЖНО: прерываем функцию, чтобы сообщение не рисовалось в чате
+    }
+
     activity.textContent = "";
     const li = document.createElement('li');
     li.className = 'post';
@@ -208,27 +221,43 @@ function showUsers(users) {
     if (users) {
         users.forEach(user => {
             const li = document.createElement('li');
-            li.textContent = user.name;
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.style.cursor = 'pointer';
+
+            // Имя пользователя
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = user.name;
+            li.appendChild(nameSpan);
+
+            // Значок уведомления
+            if (unreadMessages[user.name]) {
+                const badge = document.createElement('span');
+                badge.textContent = unreadMessages[user.name];
+                badge.style.background = '#ff4444';
+                badge.style.color = 'white';
+                badge.style.borderRadius = '50%';
+                badge.style.padding = '2px 7px';
+                badge.style.fontSize = '0.7rem';
+                badge.style.fontWeight = 'bold';
+                li.appendChild(badge);
+                li.style.color = '#ffaa00'; // Подсветка ника
+            }
 
             if (user.name !== nameInput.value) {
-                li.style.cursor = 'pointer';
                 li.onclick = () => {
-                    // 1. Сохраняем текущие сообщения комнаты, чтобы не потерять их
+                    // При открытии чата сбрасываем уведомления
+                    delete unreadMessages[user.name];
+
+                    // Твоя логика открытия DM
                     roomMessagesBackup = chatDisplay.innerHTML;
-
-                    // 2. Очищаем чат для нового приватного диалога
                     chatDisplay.innerHTML = "";
-
-                    // 3. Устанавливаем режим DM
                     privateRecipient = user.name;
                     document.querySelector('#current-room-display').textContent = `DM: ${user.name}`;
-                    document.querySelector('#current-room-display').style.color = '#ffaa00';
                     document.getElementById('back-to-room-btn').style.display = 'block';
 
-                    // Сообщение о начале чата
-                    const sysMsg = document.createElement('li');
-                    sysMsg.innerHTML = `<div style="text-align:center; color:#ffaa00; font-size:0.8rem; margin:10px 0;">--- Private conversation with ${user.name} ---</div>`;
-                    chatDisplay.appendChild(sysMsg);
+                    showUsers(users); // Перерисовываем список, чтобы убрать значок
                 };
             }
             usersList.appendChild(li);

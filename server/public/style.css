@@ -293,3 +293,19 @@ body {
 .post--left[style*="border"] {
     background-color: rgba(255, 170, 0, 0.05) !important;
 }
+
+.user-list li {
+    transition: all 0.3s ease;
+    margin-bottom: 5px;
+}
+
+/* Пульсация для новых сообщений */
+.user-list li span[style*="background: rgb(255, 68, 68)"] {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+}
