@@ -23,6 +23,8 @@ const roomList = document.querySelector('.room-list');
 // --- App State ---
 let isLoginMode = true;
 let currentRoom = "";
+let privateRecipient = null;
+const backToRoomBtn = document.getElementById('back-to-room-btn');
 
 // --- 1. ПРОВЕРКА ЛОГИНА ПРИ ЗАГРУЗКЕ ---
 window.addEventListener('DOMContentLoaded', () => {
@@ -118,11 +120,21 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 
 function sendMessage(e) {
     e.preventDefault();
-    if (nameInput.value && msgInput.value && currentRoom) {
-        socket.emit('message', {
-            name: nameInput.value,
-            text: msgInput.value
-        });
+    if (nameInput.value && msgInput.value) {
+        if (privateRecipient) {
+            // Если выбран получатель ЛС — отправляем приватное
+            socket.emit('privateMessage', {
+                sender: nameInput.value,
+                recipient: privateRecipient,
+                text: msgInput.value
+            });
+        } else if (currentRoom) {
+            // Иначе отправляем в общую комнату
+            socket.emit('message', {
+                name: nameInput.value,
+                text: msgInput.value
+            });
+        }
         msgInput.value = "";
     }
     msgInput.focus();
@@ -144,6 +156,9 @@ function enterRoom(e) {
         });
 
         currentRoom = newRoom;
+        privateRecipient = null;
+        backToRoomBtn.style.display = 'none';
+        document.querySelector('#current-room-display').style.color = 'var(--text-main)';
         document.querySelector('#current-room-display').textContent = newRoom;
         chatDisplay.innerHTML = "";
     }
@@ -166,8 +181,15 @@ socket.on("message", (data) => {
     if (data.name === nameInput.value) li.className = 'post post--right';
     else if (data.name !== 'Admin') li.className = 'post post--left';
 
+    // Если сообщение приватное, добавляем метку и меняем цвет рамки
+    const privateTag = data.isPrivate ? '<span style="color: #ffaa00; font-size: 0.8rem; margin-right: 5px; font-weight: bold;">[Private]</span>' : '';
+    if (data.isPrivate) {
+        li.style.border = "1px solid #ffaa00";
+        li.style.boxShadow = "0 0 5px rgba(255, 170, 0, 0.2)";
+    }
+
     li.innerHTML = data.name !== 'Admin'
-        ? `<div class="post__header"><span class="post__header--name">${data.name}</span><span class="post__header--time">${data.time}</span></div><div class="post__text">${data.text}</div>`
+        ? `<div class="post__header">${privateTag}<span class="post__header--name">${data.name}</span><span class="post__header--time">${data.time}</span></div><div class="post__text">${data.text}</div>`
         : `<div class="post__text">${data.text}</div>`;
 
     chatDisplay.appendChild(li);
@@ -188,10 +210,43 @@ function showUsers(users) {
         users.forEach(user => {
             const li = document.createElement('li');
             li.textContent = user.name;
+
+            // Не даем писать ЛС самому себе
+            if (user.name !== nameInput.value) {
+                li.style.cursor = 'pointer';
+                li.title = "Click to send private message";
+
+                // При клике переходим в режим ЛС
+                li.onclick = () => {
+                    privateRecipient = user.name;
+                    document.querySelector('#current-room-display').textContent = `Private with: ${user.name}`;
+                    document.querySelector('#current-room-display').style.color = '#ffaa00';
+                    backToRoomBtn.style.display = 'block';
+
+                    // Добавляем системное сообщение-разделитель в чат
+                    const sysMsg = document.createElement('li');
+                    sysMsg.innerHTML = `<div style="text-align:center; color:#ffaa00; font-size:0.8rem; margin:10px 0;">--- Private chat started with ${user.name} ---</div>`;
+                    chatDisplay.appendChild(sysMsg);
+                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                };
+            }
             usersList.appendChild(li);
         });
     }
 }
+
+backToRoomBtn.addEventListener('click', () => {
+    privateRecipient = null; // Сбрасываем получателя ЛС
+    document.querySelector('#current-room-display').textContent = currentRoom;
+    document.querySelector('#current-room-display').style.color = 'var(--text-main)';
+    backToRoomBtn.style.display = 'none'; // Прячем кнопку
+
+    // Системное сообщение
+    const sysMsg = document.createElement('li');
+    sysMsg.innerHTML = `<div style="text-align:center; color:var(--accent); font-size:0.8rem; margin:10px 0;">--- Returned to ${currentRoom} ---</div>`;
+    chatDisplay.appendChild(sysMsg);
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+});
 
 function showRooms(rooms) {
     roomList.innerHTML = '';

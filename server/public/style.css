@@ -250,3 +250,46 @@ body {
 #auth-toggle { margin-top: 15px; color: var(--text-dim); font-size: 0.9rem; }
 #auth-toggle a { color: var(--accent); text-decoration: none; }
 #auth-message { margin-top: 10px; font-size: 0.85rem; }
+
+/* --- Стили для личных сообщений --- */
+
+/* Кнопка возврата в общий чат */
+#back-to-room-btn {
+    transition: background 0.3s ease;
+    border: 1px solid var(--accent) !important;
+}
+
+#back-to-room-btn:hover {
+    background: var(--accent) !important;
+    color: white;
+}
+
+/* Эффект для кликабельных имен пользователей */
+.user-list li {
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.user-list li:hover {
+    color: #ffaa00; /* Цвет золота для ЛС */
+    background: rgba(255, 170, 0, 0.1);
+}
+
+/* Анимация появления системных сообщений */
+.chat-display li div[style*="text-align:center"] {
+    animation: fadeIn 0.5s ease;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Выделение личного сообщения, если оно пришло от другого */
+.post--left[style*="border"] {
+    background-color: rgba(255, 170, 0, 0.05) !important;
+}

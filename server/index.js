@@ -233,10 +233,29 @@ io.on('connection', socket => {
     })
 
     // Listen for activity
-    socket.on('activity', (name) => {
+    socket.on('message', ({ name, text }) => {
         const room = getUser(socket.id)?.room
         if (room) {
-            socket.broadcast.to(room).emit('activity', name)
+            io.to(room).emit('message', buildMsg(name, text))
+        }
+    })
+
+    // --- НОВЫЙ КОД: Личные сообщения ---
+    socket.on('privateMessage', ({ sender, recipient, text }) => {
+        // Ищем получателя среди всех активных пользователей
+        const targetUser = UsersState.users.find(u => u.name === recipient);
+
+        if (targetUser) {
+            const msg = buildMsg(sender, text);
+            msg.isPrivate = true; // Добавляем флаг, что это ЛС
+
+            // Отправляем получателю
+            io.to(targetUser.id).emit('message', msg);
+            // Отправляем обратно отправителю, чтобы он тоже видел свое сообщение
+            socket.emit('message', msg);
+        } else {
+            // Если пользователь вышел
+            socket.emit('message', buildMsg(ADMIN, `User ${recipient} is not online.`));
         }
     })
 })
