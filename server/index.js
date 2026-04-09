@@ -232,13 +232,6 @@ io.on('connection', socket => {
         }
     })
 
-    // Listen for activity
-    socket.on('message', ({ name, text }) => {
-        const room = getUser(socket.id)?.room
-        if (room) {
-            io.to(room).emit('message', buildMsg(name, text))
-        }
-    })
 
     // --- НОВЫЙ КОД: Личные сообщения ---
     socket.on('privateMessage', ({ sender, recipient, text }) => {
