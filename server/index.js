@@ -158,6 +158,8 @@ const UsersState = {
 io.on('connection', socket => {
     console.log(`User ${socket.id} connected`)
 
+    socket.emit('roomList', { rooms: getAllActiveRooms() })
+
     // Upon connection - only to user
     socket.emit('message', buildMsg(ADMIN, "Welcome to Chat App!"))
 

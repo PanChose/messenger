@@ -24,9 +24,9 @@ const roomList = document.querySelector('.room-list');
 let isLoginMode = true;
 let currentRoom = "";
 
-// Check if user is already logged in on page load
+// --- 1. ПРОВЕРКА ЛОГИНА ПРИ ЗАГРУЗКЕ ---
 window.addEventListener('DOMContentLoaded', () => {
-    const savedName = localStorage.getItem('username');
+    const savedName = localStorage.getItem('chat_username');
     if (savedName) {
         enterChatApp(savedName);
     }
@@ -57,7 +57,7 @@ authToggle.addEventListener('click', (e) => {
 
 // --- Auth API Integration ---
 authForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Prevent page reload
+    e.preventDefault();
 
     const username = usernameInput.value;
     const password = passwordInput.value;
@@ -74,6 +74,7 @@ authForm.addEventListener('submit', async (e) => {
 
         if (data.success) {
             if (!isLoginMode) {
+                // После регистрации: очистка и переход на логин
                 usernameInput.value = '';
                 passwordInput.value = '';
                 isLoginMode = true;
@@ -86,7 +87,8 @@ authForm.addEventListener('submit', async (e) => {
                 authMessage.style.color = '#00ff00';
                 authMessage.innerText = "Registration successful! Please login.";
             } else {
-                localStorage.setItem('username', username);
+                // После логина: сохраняем сессию
+                localStorage.setItem('chat_username', username);
                 enterChatApp(username);
             }
         } else {
@@ -102,17 +104,20 @@ function enterChatApp(username) {
     authContainer.style.display = 'none';
     chatContainer.style.display = 'flex';
     nameInput.value = username;
+    // Запрашиваем список комнат у сервера при входе
+    socket.emit('requestRoomList');
 }
 
+// LOGOUT
 document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.removeItem('username');
+    localStorage.removeItem('chat_username');
     location.reload();
 });
 
 // --- Chat Logic ---
 
 function sendMessage(e) {
-    e.preventDefault(); // CRITICAL: Stop reload
+    e.preventDefault();
     if (nameInput.value && msgInput.value && currentRoom) {
         socket.emit('message', {
             name: nameInput.value,
@@ -124,7 +129,7 @@ function sendMessage(e) {
 }
 
 function enterRoom(e) {
-    e.preventDefault(); // CRITICAL: Stop reload
+    if (e) e.preventDefault();
     const newRoom = chatRoom.value.trim();
 
     if (nameInput.value && newRoom) {
@@ -144,7 +149,6 @@ function enterRoom(e) {
     }
 }
 
-// Ensure these listeners are correctly attached
 document.querySelector('.form-msg').addEventListener('submit', sendMessage);
 document.querySelector('.form-join').addEventListener('submit', enterRoom);
 
@@ -155,27 +159,30 @@ msgInput.addEventListener('keypress', () => {
 // --- Socket Listeners ---
 
 socket.on("message", (data) => {
+    activity.textContent = "";
     const li = document.createElement('li');
     li.className = 'post';
 
     if (data.name === nameInput.value) li.className = 'post post--right';
     else if (data.name !== 'Admin') li.className = 'post post--left';
 
-    if (data.name !== 'Admin') {
-        li.innerHTML = `
-            <div class="post__header">
-                <span class="post__header--name">${data.name}</span>
-                <span class="post__header--time">${data.time}</span>
-            </div>
-            <div class="post__text">${data.text}</div>`;
-    } else {
-        li.innerHTML = `<div class="post__text">${data.text}</div>`;
-    }
+    li.innerHTML = data.name !== 'Admin'
+        ? `<div class="post__header"><span class="post__header--name">${data.name}</span><span class="post__header--time">${data.time}</span></div><div class="post__text">${data.text}</div>`
+        : `<div class="post__text">${data.text}</div>`;
+
     chatDisplay.appendChild(li);
     chatDisplay.scrollTop = chatDisplay.scrollHeight;
 });
 
 socket.on('userList', ({ users }) => {
+    showUsers(users);
+});
+
+socket.on('roomList', ({ rooms }) => {
+    showRooms(rooms);
+});
+
+function showUsers(users) {
     usersList.innerHTML = '';
     if (users) {
         users.forEach(user => {
@@ -184,9 +191,9 @@ socket.on('userList', ({ users }) => {
             usersList.appendChild(li);
         });
     }
-});
+}
 
-socket.on('roomList', ({ rooms }) => {
+function showRooms(rooms) {
     roomList.innerHTML = '';
     if (rooms) {
         rooms.forEach(room => {
@@ -196,12 +203,12 @@ socket.on('roomList', ({ rooms }) => {
             li.onclick = (e) => {
                 e.preventDefault();
                 chatRoom.value = room;
-                document.querySelector('.form-join').dispatchEvent(new Event('submit'));
+                enterRoom(); // Используем функцию напрямую без лишних ивентов
             };
             roomList.appendChild(li);
         });
     }
-});
+}
 
 let activityTimer;
 socket.on("activity", (name) => {
