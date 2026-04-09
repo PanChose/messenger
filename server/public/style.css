@@ -343,3 +343,46 @@ body {
     background: #2d2d2d;
     color: white;
 }
+
+/* --- Mobiele Optimalisatie --- */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column; /* Stapel sidebar en chat boven elkaar */
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .side-bar {
+        width: 100%;
+        max-height: 40vh; /* Geef de lijst met chats minder ruimte op mobiel */
+        border-right: none;
+        border-bottom: 1px solid #333;
+    }
+
+    .chat-window {
+        flex: 1;
+        width: 100%;
+    }
+
+    /* Maak tekst en knoppen groter voor vingers (touch) */
+    input, button {
+        font-size: 16px !important; /* Voorkomt inzoomen op iPhone bij typen */
+    }
+
+    .chat-item {
+        padding: 20px 15px; /* Groter klikoppervlak */
+    }
+
+    .post {
+        max-width: 85%; /* Iets breder op smalle schermen */
+    }
+
+    /* Verberg de zijbalk als er een chat actief is (optioneel, voor echte WhatsApp-vibe) */
+    .app-container.chat-active .side-bar {
+        display: none;
+    }
+
+    .app-container.chat-active .chat-window {
+        display: flex;
+    }
+}

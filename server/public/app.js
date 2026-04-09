@@ -192,6 +192,10 @@ async function openChat(targetName) {
         chatDisplay.innerHTML = '<li style="text-align:center; color:red;">Failed to load history</li>';
     }
 
+    if (window.innerWidth <= 768) {
+        document.getElementById('chat-container').classList.add('chat-active');
+    }
+
     // Update de lijst om de 'active' class te verplaatsen
     renderChatList();
 }
@@ -274,4 +278,13 @@ socket.on("activity", (name) => {
             activity.textContent = "";
         }, 3000);
     }
+});
+
+document.getElementById('back-to-room-btn').addEventListener('click', () => {
+    // Toon de zijbalk weer op mobiel
+    document.getElementById('chat-container').classList.remove('chat-active');
+
+    // Optioneel: zet de huidige chat op null zodat sendMessage blokkeert
+    currentChatPartner = null;
+    document.querySelector('#current-room-display').textContent = "Select a chat";
 });
