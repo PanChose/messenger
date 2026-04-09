@@ -23,6 +23,7 @@ const currentChatDisplay = document.getElementById('current-room-display');
 // --- Состояние приложения ---
 let isLoginMode = true;
 let currentChatPartner = null;
+let privateRecipient = null;
 let unreadCounts = {}; // { "username": количество }
 let searchResults = [];
 let recentChats = JSON.parse(localStorage.getItem('recent_chats') || "[]");
@@ -155,22 +156,25 @@ function renderSingleMessage(data) {
 
 // Изменяем логику клика на пользователя
 async function openChat(targetName) {
+    // FIX: Update beide variabelen zodat de rest van de code het ook begrijpt
+    currentChatPartner = targetName;
     privateRecipient = targetName;
+
     const myName = localStorage.getItem('chat_username');
 
-    // 1. Меняем заголовок
+    // 1. UI aanpassen
     document.querySelector('#current-room-display').textContent = `Chat with: ${targetName}`;
     document.querySelector('#current-room-display').style.color = '#ffaa00';
 
-    // 2. Очищаем экран перед загрузкой
+    // 2. Scherm leegmaken
     chatDisplay.innerHTML = '<li style="text-align:center; color:gray;">Loading history...</li>';
 
-    // 3. ЗАГРУЖАЕМ ИСТОРИЮ ИЗ БД
+    // 3. Geschiedenis ophalen
     try {
         const response = await fetch(`/messages/${myName}/${targetName}`);
         const history = await response.json();
 
-        chatDisplay.innerHTML = ""; // Убираем надпись Loading
+        chatDisplay.innerHTML = "";
 
         if (history.length === 0) {
             chatDisplay.innerHTML = '<li style="text-align:center; color:gray; margin-top:20px;">No messages yet. Say hi!</li>';
@@ -187,21 +191,28 @@ async function openChat(targetName) {
         console.error("Error loading history:", err);
         chatDisplay.innerHTML = '<li style="text-align:center; color:red;">Failed to load history</li>';
     }
+
+    // Update de lijst om de 'active' class te verplaatsen
+    renderChatList();
 }
 
 // --- 3. Работа с сообщениями ---
 
 function sendMessage(e) {
     e.preventDefault();
+    const myName = localStorage.getItem('chat_username');
+
+    // Gebruik currentChatPartner (die we hierboven hebben gezet)
     if (msgInput.value && currentChatPartner) {
         socket.emit('privateMessage', {
-            sender: nameInput.value,
+            sender: myName, // Gebruik de naam uit localStorage of nameInput.value
             recipient: currentChatPartner,
             text: msgInput.value
         });
         msgInput.value = "";
+        msgInput.focus();
     } else if (!currentChatPartner) {
-        alert("Please select a user to chat with");
+        alert("Please select a user to chat with first!");
     }
 }
 
